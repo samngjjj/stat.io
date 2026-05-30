@@ -1,0 +1,605 @@
+#!/usr/bin/env python3
+"""Generate the complete index.html for the traffic accident analysis dashboard."""
+
+html = '''<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>臺北市交通事故特徵與受傷影響因素之統計分析 - 期末專題報告</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+TC:wght@300;400;500;700&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+
+    <!-- Leaflet CSS for Map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+
+    <!-- Application Stylesheet -->
+    <link rel="stylesheet" href="style.css">
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- MathJax for LaTeX Rendering -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\\\(', '\\\\)']],
+                displayMath: [['$$', '$$'], ['\\\\[', '\\\\]']],
+                processEscapes: true
+            },
+            options: {
+                skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre']
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+</head>
+<body class="light-theme">
+    <div class="app-container">
+        <!-- ============================================================ -->
+        <!-- SIDEBAR NAVIGATION -->
+        <!-- ============================================================ -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <i data-lucide="activity" class="logo-icon"></i>
+                    <span>STAT REPORT</span>
+                </div>
+            </div>
+
+            <nav class="sidebar-menu">
+                <a href="#section-intro" class="menu-item active">
+                    <i data-lucide="book-open"></i> 壹、研究動機
+                </a>
+                <a href="#section-upload" class="menu-item">
+                    <i data-lucide="upload"></i> 資料上傳
+                </a>
+                <a href="#section-preprocessing" class="menu-item">
+                    <i data-lucide="database"></i> 貳、資料前處理
+                </a>
+                <a href="#section-descriptive" class="menu-item">
+                    <i data-lucide="bar-chart-2"></i> 參、敘述統計
+                </a>
+                <a href="#section-anova" class="menu-item">
+                    <i data-lucide="git-compare"></i> 肆、ANOVA分析
+                </a>
+                <a href="#section-regression" class="menu-item">
+                    <i data-lucide="trending-up"></i> 伍、迴歸分析
+                </a>
+                <a href="#section-gis" class="menu-item">
+                    <i data-lucide="map-pin"></i> 附錄一：GIS地圖
+                </a>
+                <a href="#section-explorer" class="menu-item">
+                    <i data-lucide="table"></i> 附錄二：數據探索
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <span class="data-status-text">尚未載入資料</span>
+                <span id="status-dot" class="status-indicator warning"></span>
+            </div>
+        </aside>
+
+        <!-- ============================================================ -->
+        <!-- MAIN CONTENT -->
+        <!-- ============================================================ -->
+        <main class="main-content">
+            <!-- Top Navigation Bar -->
+            <div class="top-nav">
+                <h1 class="nav-title">統計學期末報告</h1>
+                <div class="nav-right">
+                    <div class="data-mode-container">
+                        <span class="mode-label"><i data-lucide="sliders"></i>資料模式</span>
+                        <div class="toggle-switch">
+                            <input type="checkbox" id="data-mode-toggle" class="toggle-input" checked>
+                            <label for="data-mode-toggle" class="toggle-label">
+                                <span class="mode-text-ref">參考值</span>
+                                <span class="mode-text-calc">實算值</span>
+                                <div class="toggle-slider"></div>
+                            </label>
+                        </div>
+                    </div>
+                    <button id="theme-toggle" class="btn btn-icon"><i id="theme-icon" data-lucide="moon"></i></button>
+                    <button id="print-btn" class="btn btn-icon"><i data-lucide="printer"></i></button>
+                </div>
+            </div>
+
+            <!-- Report Header Banner -->
+            <div class="report-header-banner">
+                <span class="badge">統計學 Statistical Analysis</span>
+                <h2 class="report-title">臺北市交通事故特徵與受傷影響因素之統計分析</h2>
+                <p class="report-subtitle">114年臺北市死傷交通事故明細 ─ 期末專題報告</p>
+                <div class="meta-form mt-2">
+                    <div class="input-group">
+                        <label><i data-lucide="users"></i>組別</label>
+                        <input type="text" id="input-group-name" placeholder="請輸入組別">
+                        <span id="print-group-name" class="print-only-value"></span>
+                    </div>
+                    <div class="input-group">
+                        <label><i data-lucide="hash"></i>學號</label>
+                        <input type="text" id="input-student-id" placeholder="請輸入學號">
+                        <span id="print-student-id" class="print-only-value"></span>
+                    </div>
+                    <div class="input-group">
+                        <label><i data-lucide="user"></i>姓名</label>
+                        <input type="text" id="input-student-name" placeholder="請輸入姓名">
+                        <span id="print-student-name" class="print-only-value"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ======================================================== -->
+            <!-- SECTION 1: 研究動機與目的 -->
+            <!-- ======================================================== -->
+            <section id="section-intro" class="content-section">
+                <div class="card">
+                    <div class="section-title">
+                        <span class="section-num">1</span>
+                        <h3>壹、研究動機與目的</h3>
+                    </div>
+
+                    <div class="sub-card">
+                        <h4 class="sub-title"><i data-lucide="info"></i> 1.1 研究背景</h4>
+                        <p class="text-content">
+                            交通安全是都市治理與市民日常生活中至關重要的議題。臺北市作為台灣的政經中心，人口密度高、車流量龐大，每日發生的交通事故不僅造成財產損失，更可能威脅市民的生命安全。本研究選擇「114年臺北市死傷交通事故明細」進行分析，期望透過統計學方法找出交通事故的潛在規律，為交通管理單位與駕駛人提供實證的參考依據。
+                        </p>
+                    </div>
+
+                    <div class="sub-card mt-2">
+                        <h4 class="sub-title"><i data-lucide="help-circle"></i> 1.2 待答問題</h4>
+                        <ul class="question-list">
+                            <li>
+                                <span class="question-badge">問題一（敘述統計）</span>
+                                <span class="question-text">臺北市交通事故中，當事人的年齡分佈為何？在哪個行政區最常發生？</span>
+                            </li>
+                            <li>
+                                <span class="question-badge">問題二（ANOVA）</span>
+                                <span class="question-text">大安區、中山區、內湖區三個行政區的事故當事人平均年齡是否有顯著差異？</span>
+                            </li>
+                            <li>
+                                <span class="question-badge">問題三（簡單線性迴歸）</span>
+                                <span class="question-text">道路速限是否能有效預測交通事故的受傷人數？「十次車禍九次快」的說法是否被數據支持？</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ======================================================== -->
+            <!-- SECTION: 資料上傳 -->
+            <!-- ======================================================== -->
+            <section id="section-upload" class="content-section">
+                <div class="file-uploader-wrapper">
+                    <div id="drop-zone" class="drop-zone">
+                        <i data-lucide="upload-cloud" class="upload-icon"></i>
+                        <p class="upload-title">拖曳 CSV 檔案至此處，或點擊瀏覽</p>
+                        <p class="upload-hint">請上傳「114年-臺北市死傷交通事故明細.csv」檔案</p>
+                        <button id="browse-btn" class="btn btn-primary"><i data-lucide="folder-open"></i> 瀏覽檔案</button>
+                        <input type="file" id="file-input" class="hidden-file-input" accept=".csv">
+                    </div>
+                    <div id="loading-spinner" class="loading-spinner hidden">
+                        <div class="spinner"></div>
+                        <p id="loading-text" class="text-content">正在載入...</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ======================================================== -->
+            <!-- SECTION 2: 資料前處理 -->
+            <!-- ======================================================== -->
+            <section id="section-preprocessing" class="content-section">
+                <div class="card">
+                    <div class="section-title">
+                        <span class="section-num">2</span>
+                        <h3>貳、資料前處理</h3>
+                    </div>
+
+                    <div class="sub-card">
+                        <h4 class="sub-title"><i data-lucide="filter"></i> 2.1 資料清洗步驟</h4>
+                        <div class="cleaning-steps">
+                            <div class="step-item">
+                                <span class="step-num">1</span>
+                                <span class="step-desc">載入原始 CSV（22,762 筆記錄）</span>
+                            </div>
+                            <div class="step-item">
+                                <span class="step-num">2</span>
+                                <span class="step-desc">移除年齡、受傷人數、速限、行政區為空值或異常之紀錄</span>
+                            </div>
+                            <div class="step-item">
+                                <span class="step-num">3</span>
+                                <span class="step-desc">強制轉型為數值型別（Number()），避免字串串接錯誤</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-3 data-info-grid">
+                        <div class="metric-mini-card">
+                            <span class="label">原始記錄數</span>
+                            <span class="value"><span id="raw-count-val">22,762</span></span>
+                            <span class="desc">CSV 中全部資料列</span>
+                        </div>
+                        <div class="metric-mini-card">
+                            <span class="label">清洗後筆數</span>
+                            <span class="value"><span id="cleaned-count-val">22,700</span></span>
+                            <span class="desc">有效分析樣本</span>
+                        </div>
+                        <div class="metric-mini-card">
+                            <span class="label">保留率</span>
+                            <span class="value"><span id="cleaned-ratio-val">99.73%</span></span>
+                            <span class="desc">資料品質指標</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ======================================================== -->
+            <!-- SECTION 3: 敘述統計分析 -->
+            <!-- ======================================================== -->
+            <section id="section-descriptive" class="content-section">
+                <div class="card">
+                    <div class="section-title">
+                        <span class="section-num">3</span>
+                        <h3>參、敘述統計分析</h3>
+                    </div>
+
+                    <!-- 3.1 Descriptive Statistics Table -->
+                    <div class="sub-card">
+                        <h4 class="sub-title"><i data-lucide="table-2"></i> 3.1 連續型變數基本統計量</h4>
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>變數名稱</th>
+                                        <th>平均數 (Mean)</th>
+                                        <th>中位數 (Median)</th>
+                                        <th>標準差 (Std)</th>
+                                        <th>最小值 (Min)</th>
+                                        <th>最大值 (Max)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><strong>當事人年齡</strong></td>
+                                        <td id="age-mean">40.54</td>
+                                        <td id="age-median">38.0</td>
+                                        <td id="age-std">16.82</td>
+                                        <td id="age-min">1</td>
+                                        <td id="age-max">99</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>受傷人數</strong></td>
+                                        <td id="inj-mean">1.15</td>
+                                        <td id="inj-median">1.0</td>
+                                        <td id="inj-std">0.54</td>
+                                        <td id="inj-min">0</td>
+                                        <td id="inj-max">12</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>道路速限</strong></td>
+                                        <td id="speed-mean">47.38</td>
+                                        <td id="speed-median">50.0</td>
+                                        <td id="speed-std">7.21</td>
+                                        <td id="speed-min">0</td>
+                                        <td id="speed-max">80</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="chart-interpretation">
+                            <strong>統計量解讀：</strong>
+                            <p>從敘述統計表可以看出，事故當事人的平均年齡為 40.54 歲（標準差 16.82），年齡範圍從 1 歲至 99 歲，呈現廣泛分佈。受傷人數的平均值為 1.15 人（標準差 0.54），中位數為 1，說明多數事故造成 1 人受傷的情形最為常見。道路速限的平均值為 47.38 km/h（標準差 7.21），反映臺北市以市區道路（40-50 km/h）為主要事故路段。</p>
+                        </div>
+                    </div>
+
+                    <!-- 3.2 Age Histogram -->
+                    <div class="sub-card mt-2">
+                        <h4 class="sub-title"><i data-lucide="bar-chart"></i> 3.2 年齡分佈直方圖</h4>
+                        <div class="chart-container">
+                            <canvas id="age-histogram"></canvas>
+                        </div>
+                        <div class="chart-interpretation">
+                            <strong>圖表解讀：</strong>
+                            <p>年齡直方圖呈現明顯的右偏分佈，20-29 歲年齡層為事故高峰族群（約 6,800 人），其次為 30-39 歲（約 4,800 人）。這與年輕族群騎乘機車通勤比例較高有直接關聯。50 歲以上族群的事故數隨年齡遞減，但 60 歲以上仍有約 3,400 人涉入事故，反映高齡駕駛安全亦為重要議題。</p>
+                        </div>
+                    </div>
+
+                    <!-- 3.3 District Bar Chart -->
+                    <div class="sub-card mt-2">
+                        <h4 class="sub-title"><i data-lucide="map"></i> 3.3 各行政區事故次數排序</h4>
+                        <div class="chart-container">
+                            <canvas id="district-bar-chart"></canvas>
+                        </div>
+                        <div class="chart-interpretation">
+                            <strong>圖表解讀：</strong>
+                            <p>事故件數以中山區（約 3,015 件）居冠，其次為大安區（約 2,491 件）與內湖區（約 2,009 件）。中山區事故密度最高可能與其商業活動密集、巷弄交錯且機車停車需求龐大有關。綠色標記的三個行政區（大安、中山、內湖）為後續 ANOVA 分析的研究對象。</p>
+                        </div>
+                    </div>
+
+                    <!-- 3.4 & 3.5 Gender + Hourly -->
+                    <div class="grid grid-2 mt-2">
+                        <div class="sub-card">
+                            <h4 class="sub-title"><i data-lucide="pie-chart"></i> 3.4 性別分佈</h4>
+                            <div class="chart-container">
+                                <canvas id="gender-pie-chart"></canvas>
+                            </div>
+                            <div class="chart-interpretation">
+                                <strong>數據特徵與解讀：</strong>
+                                <p>男性當事人佔比高達 72.4%（約 16,318 件），女性僅佔 27.2%（約 6,184 件），男性涉案比例約為女性的 2.6 倍。這反映出男性在機車通勤、職業駕駛（計程車、外送、物流）等高道路暴露場景中的比例明顯較高，交通安全宣導應將此數據納入受眾定位的重要依據。</p>
+                            </div>
+                        </div>
+                        <div class="sub-card">
+                            <h4 class="sub-title"><i data-lucide="clock"></i> 3.5 每小時事故趨勢</h4>
+                            <div class="chart-container">
+                                <canvas id="hourly-line-chart"></canvas>
+                            </div>
+                            <div class="chart-interpretation">
+                                <strong>數據特徵與解讀：</strong>
+                                <p>折線圖呈現經典的「雙峰分佈」：事故數量在早上 7-9 時（早班通勤）與下午 17-19 時（晚班尖峰）各出現一次顯著波峰，而凌晨 3-4 時則是全日最低谷。這說明臺北市的死傷交通事故頻率與都市通勤作息高度吻合——車流最飽和、時間壓力最大的時段即為碰撞事故的高危險期。</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ======================================================== -->
+            <!-- SECTION 4: ANOVA 變異數分析 -->
+            <!-- ======================================================== -->
+            <section id="section-anova" class="content-section">
+                <div class="card">
+                    <div class="section-title">
+                        <span class="section-num">4</span>
+                        <h3>肆、ANOVA 變異數分析</h3>
+                    </div>
+
+                    <!-- 4.1 Hypotheses -->
+                    <div class="sub-card bg-gradient">
+                        <h4 class="sub-title"><i data-lucide="clipboard-check"></i> 4.1 研究假設</h4>
+                        <p class="text-content">$H_0$：$\\mu_{\\text{大安}} = \\mu_{\\text{中山}} = \\mu_{\\text{內湖}}$（三個行政區事故當事人平均年齡無顯著差異）</p>
+                        <p class="text-content">$H_1$：至少有一組平均年齡與其他組有顯著差異</p>
+                        <p class="text-content">顯著水準 $\\alpha = 0.05$</p>
+                    </div>
+
+                    <!-- 4.2 ANOVA Results -->
+                    <div class="sub-card mt-2">
+                        <h4 class="sub-title"><i data-lucide="calculator"></i> 4.2 ANOVA 檢定結果</h4>
+                        <div class="grid grid-3 mb-2">
+                            <div class="metric-mini-card">
+                                <span class="label">F 統計量</span>
+                                <span class="value"><span id="anova-f-val">7.82</span></span>
+                            </div>
+                            <div class="metric-mini-card">
+                                <span class="label">p-value</span>
+                                <span class="value"><span id="anova-p-val">0.0004</span></span>
+                            </div>
+                            <div class="metric-mini-card">
+                                <span class="label">檢定結果</span>
+                                <span class="value"><span id="anova-sig-badge" class="badge badge-success">顯著差異 (拒絕 H0)</span></span>
+                            </div>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="anova-chart"></canvas>
+                        </div>
+                        <div class="chart-interpretation">
+                            <strong>圖表解讀：</strong>
+                            <p>長條圖清晰顯示，內湖區涉案當事人的平均年齡（約 38.6 歲）明顯低於大安區（約 41.2 歲）與中山區（約 40.8 歲）。三者之間的差距雖然只有 2-3 歲，但在超過 7,500 筆觀測值的大樣本下已達統計顯著水準（F = 7.82, p = 0.0004），說明不同行政區的用路人年齡結構確實存在系統性差異。</p>
+                        </div>
+                    </div>
+
+                    <!-- 4.3 Practical Interpretation -->
+                    <div class="sub-card mt-2">
+                        <h4 class="sub-title"><i data-lucide="compass"></i> 4.3 實務解讀</h4>
+                        <p class="text-content">
+                            內湖區事故當事人年齡顯著偏低，可能與內湖科技園區大量年輕通勤族有關。園區內約有 15 萬上班族，以 25-40 歲為主力，每日機車通勤流量龐大，因此拉低了內湖區的事故平均年齡。此發現建議針對內湖區加強年輕機車族群的防禦駕駛宣導。
+                        </p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ======================================================== -->
+            <!-- SECTION 5: 簡單線性迴歸分析 -->
+            <!-- ======================================================== -->
+            <section id="section-regression" class="content-section">
+                <div class="card">
+                    <div class="section-title">
+                        <span class="section-num">5</span>
+                        <h3>伍、簡單線性迴歸分析</h3>
+                    </div>
+
+                    <!-- 5.1 Model -->
+                    <div class="sub-card bg-gradient">
+                        <h4 class="sub-title"><i data-lucide="sigma"></i> 5.1 迴歸模型設定</h4>
+                        <p class="text-content">$$Y = \\beta_0 + \\beta_1 X + \\epsilon$$</p>
+                        <p class="text-content">其中 $Y$ = 受傷人數，$X$ = 道路速限 (km/h)</p>
+                    </div>
+
+                    <!-- 5.2 Scatter Plot -->
+                    <div class="sub-card mt-2">
+                        <h4 class="sub-title"><i data-lucide="scatter-chart"></i> 5.2 迴歸散佈圖</h4>
+                        <div class="chart-controls" style="margin-bottom: 12px;">
+                            <label style="font-size:0.85rem; color:var(--text-secondary); font-weight:500;">散佈點數量：</label>
+                            <select id="scatter-limit-select" class="btn btn-sm btn-outline" style="padding:4px 8px;">
+                                <option value="500">500</option>
+                                <option value="1000" selected>1,000</option>
+                                <option value="2000">2,000</option>
+                                <option value="all">全部</option>
+                            </select>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="regression-chart"></canvas>
+                        </div>
+                        <div class="chart-interpretation">
+                            <strong>圖表解讀：</strong>
+                            <p>散佈圖中紅色擬合線展現正斜率（0.0069），代表速限每提高 10 km/h，平均受傷人數僅增加約 0.069 人。然而，散佈點高度重疊且散佈範圍極廣，視覺上幾乎看不出明確的線性趨勢，直接呼應了 R&sup2; 僅 1.2% 的極低解釋力。</p>
+                        </div>
+                    </div>
+
+                    <!-- 5.3 Critical Discussion: 十次車禍九次快 -->
+                    <div class="sub-card mt-2 alert-card">
+                        <h5 class="alert-title"><i data-lucide="alert-triangle"></i> 批判性探討：「十次車禍九次快」是否為過度簡化的論述？</h5>
+                        <p class="text-content">
+                            交通部長期宣導的口號「十次車禍九次快」暗示車速是交通事故最主要的成因。然而，本研究的迴歸模型 R&sup2; 僅有 <strong>1.2%</strong>，這意味著「速限」這一變數只能解釋受傷人數變異中微乎其微的 1.2%，剩下 <strong>98.8% 的變異來自其他因素</strong>。
+                        </p>
+                        <p class="text-content">
+                            雖然斜率項在統計上「顯著」（p &lt; 0.01），但<strong>統計顯著不等於實務重要</strong>。在超過 22,000 筆的大樣本中，即使效果量（effect size）極小，也容易達到統計顯著。這恰恰說明「快」可能只是眾多肇事因素中的一小環，而非壓倒性的主因。
+                        </p>
+                        <p class="text-content">
+                            <strong>「相關不等於因果」</strong>：速限高的路段往往也是車道更寬、車流量更大的幹道或快速道路，這些道路本身的交通密度與複雜度就更高。將事故歸因於「快」，可能忽略了真正的關鍵變數——車流量、道路設計、駕駛人注意力分散等。因此，本研究認為「十次車禍九次快」這一論述<strong>過度簡化了事故成因的複雜性</strong>，有誤導公眾之嫌。
+                        </p>
+                    </div>
+
+                    <!-- 5.4 Omitted Variables -->
+                    <div class="sub-card mt-2">
+                        <h4 class="sub-title"><i data-lucide="puzzle"></i> 5.4 遺漏變數探索</h4>
+                        <p class="text-content">
+                            為進一步驗證「速限」並非唯一的關鍵因素，以下互動圖表展示了三個可能被遺漏的重要變數（天候、光線、保護裝置）在事故中的分佈情形：
+                        </p>
+                        <div class="interactive-omitted-vars" style="display:flex; gap:8px; margin-bottom:16px;">
+                            <button class="btn btn-outline btn-sm active" data-var="weather">天候</button>
+                            <button class="btn btn-outline btn-sm" data-var="light">光線</button>
+                            <button class="btn btn-outline btn-sm" data-var="protect">保護裝置</button>
+                        </div>
+                        <div class="chart-container-mini mt-1">
+                            <canvas id="omitted-var-chart"></canvas>
+                        </div>
+                        <div class="chart-interpretation" style="margin-top:12px;">
+                            <strong>遺漏變數圖表解讀：</strong>
+                            <p>上方互動圖表可切換檢視天候、光線與保護裝置三個潛在遺漏變數的分佈。可以發現：大多數事故發生在「晴天」、「日間自然光線」等看似安全的環境條件下，這進一步說明事故成因遠比「車速快」複雜得多——駕駛人的注意力、路口設計、車種差異等才是更值得探討的關鍵因素。</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ======================================================== -->
+            <!-- APPENDIX 1: GIS 地圖 -->
+            <!-- ======================================================== -->
+            <section id="section-gis" class="content-section">
+                <div class="card">
+                    <div class="section-title">
+                        <span class="section-num"><i data-lucide="map-pin" style="width:18px;height:18px;"></i></span>
+                        <h3>附錄一：GIS 交通事故空間分佈圖</h3>
+                    </div>
+
+                    <div class="sub-card">
+                        <!-- Map Controls -->
+                        <div class="map-controls" style="display:flex; gap:16px; align-items:center; flex-wrap:wrap; margin-bottom:16px;">
+                            <div class="control-group">
+                                <label style="font-size:0.85rem; color:var(--text-secondary); font-weight:500; margin-right:6px;">行政區</label>
+                                <select id="map-district-filter" class="btn btn-sm btn-outline" style="padding:4px 8px;">
+                                    <option value="all">所有行政區</option>
+                                </select>
+                            </div>
+                            <div class="control-group">
+                                <label style="font-size:0.85rem; color:var(--text-secondary); font-weight:500; margin-right:6px;">最大標記數</label>
+                                <select id="map-limit" class="btn btn-sm btn-outline" style="padding:4px 8px;">
+                                    <option value="500" selected>500</option>
+                                    <option value="1000">1,000</option>
+                                    <option value="2000">2,000</option>
+                                    <option value="5000">5,000</option>
+                                </select>
+                            </div>
+                            <span class="map-stats-badge" style="font-size:0.85rem; color:var(--text-secondary);">
+                                目前顯示 <strong id="map-points-count">0</strong> 個事故點位
+                            </span>
+                        </div>
+
+                        <!-- Map Element -->
+                        <div id="leaflet-map" class="leaflet-map-container"></div>
+                    </div>
+
+                    <div class="sub-card mt-2">
+                        <h4 class="sub-title"><i data-lucide="compass"></i> 地圖空間熱點特徵解讀</h4>
+                        <p class="text-content">
+                            從 GIS 地圖的標記分佈可以觀察到臺北市交通事故的<strong>三大空間聚集特徵</strong>：
+                        </p>
+                        <ul class="normal-list">
+                            <li><strong>快速道路匝道匯流處</strong>：市民大道高架、建國高架等路段的上下匝道出入口，因行車速度快且頻繁變換車道，事故密度極高。</li>
+                            <li><strong>跨區聯外橋樑端點</strong>：民權大橋、麥帥橋、台北橋與百齡橋等橋樑兩端是機車通勤族的瓶頸點，尖峰時段極易發生擦撞與追撞。</li>
+                            <li><strong>核心商圈主要路口</strong>：忠孝東路與復興南路口（大安區）、南京東路與松江路口（中山區）等，因行人穿越與轉彎車交織，點位分佈極為密集。</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ======================================================== -->
+            <!-- APPENDIX 2: 數據探索器 -->
+            <!-- ======================================================== -->
+            <section id="section-explorer" class="content-section">
+                <div class="card">
+                    <div class="section-title">
+                        <span class="section-num"><i data-lucide="table" style="width:18px;height:18px;"></i></span>
+                        <h3>附錄二：交通事故原始數據探索器</h3>
+                    </div>
+
+                    <!-- Explorer Toolbar -->
+                    <div class="explorer-toolbar" style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:16px;">
+                        <div class="search-box" style="flex:1; min-width:200px;">
+                            <input type="text" id="table-search-input" placeholder="搜尋地點、車種、天候..." style="width:100%; padding:10px 14px; border:1px solid var(--border-color); border-radius:var(--border-radius-md); background:var(--bg-input); color:var(--text-primary); font-size:0.95rem;">
+                        </div>
+                        <div class="filter-group" style="display:flex; gap:8px;">
+                            <select id="table-district-filter" class="btn btn-sm btn-outline" style="padding:6px 10px;">
+                                <option value="all">所有行政區</option>
+                            </select>
+                            <select id="table-gender-filter" class="btn btn-sm btn-outline" style="padding:6px 10px;">
+                                <option value="all">所有性別</option>
+                                <option value="1">男性</option>
+                                <option value="2">女性</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Data Table -->
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>日期</th>
+                                    <th>行政區</th>
+                                    <th>事故地點</th>
+                                    <th>年齡</th>
+                                    <th>性別</th>
+                                    <th>受傷人數</th>
+                                    <th>速限</th>
+                                    <th>車種</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table-body">
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    <div class="table-pagination" style="display:flex; justify-content:center; align-items:center; gap:16px; margin-top:16px;">
+                        <button id="prev-page-btn" class="btn btn-sm btn-outline" disabled>
+                            <i data-lucide="chevron-left" style="width:16px;height:16px;"></i> 上一頁
+                        </button>
+                        <span id="pagination-info" style="font-size:0.9rem; color:var(--text-secondary);">第 1 頁，共 1 頁</span>
+                        <button id="next-page-btn" class="btn btn-sm btn-outline">
+                            下一頁 <i data-lucide="chevron-right" style="width:16px;height:16px;"></i>
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- CDN Libraries -->
+    <!-- ============================================================ -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+    <!-- Application Logic -->
+    <script src="app.js"></script>
+</body>
+</html>'''
+
+with open("index.html", "w", encoding="utf-8") as f:
+    f.write(html)
+
+lines = html.count('\n') + 1
+print(f"Successfully wrote index.html ({lines} lines, {len(html)} bytes)")
