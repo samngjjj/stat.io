@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2026 精誠集團 AI 創新競賽 - 決賽簽到查詢</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <!-- Google Fonts Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(180deg, #0b0f19 0%, #030712 100%);
+            color: #f3f4f6;
+            min-height: 100vh;
+        }
+        .glass-card {
+            background: rgba(17, 24, 39, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.02);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(99, 102, 241, 0.3);
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="antialiased pb-12">
+
+    <!-- Top Glow Effect -->
+    <div class="absolute top-0 left-0 right-0 h-48 bg-indigo-500/10 blur-[80px] pointer-events-none rounded-full"></div>
+
+    <!-- Main Container -->
+    <div class="max-w-md mx-auto px-4 pt-6 relative z-10">
+        
+        <!-- Header -->
+        <header class="text-center mb-6">
+            <div class="inline-flex p-3 bg-gradient-to-tr from-indigo-600 to-violet-600 text-white rounded-2xl shadow-lg shadow-indigo-500/20 mb-3">
+                <i class="fa-solid fa-clipboard-list text-2xl"></i>
+            </div>
+            <span class="block text-xs font-bold tracking-widest text-indigo-400 uppercase">SYSTEX 2026</span>
+            <h1 class="text-xl font-bold text-white mt-1">決賽簽到即時查詢系統</h1>
+            <p class="text-xs text-slate-400 mt-1 flex items-center justify-center gap-1.5">
+                <span class="flex h-2 w-2 relative">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+                <span id="connection-status">正在載入雲端資料...</span>
+            </p>
+        </header>
+
+        <!-- Stats Overview Card -->
+        <section class="glass-card rounded-2xl p-4 mb-6 shadow-xl">
+            <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">簽到進度統計</h2>
+            <div class="grid grid-cols-3 gap-3 text-center mb-4">
+                <div class="bg-slate-900/40 border border-white/5 rounded-xl p-2.5">
+                    <p class="text-[10px] text-slate-400">參賽學生</p>
+                    <p class="text-base font-bold text-white mt-1" id="stat-students">0 / 0</p>
+                </div>
+                <div class="bg-slate-900/40 border border-white/5 rounded-xl p-2.5">
+                    <p class="text-[10px] text-slate-400">長官/評審</p>
+                    <p class="text-base font-bold text-emerald-400 mt-1" id="stat-vips">0 / 0</p>
+                </div>
+                <div class="bg-slate-900/40 border border-white/5 rounded-xl p-2.5">
+                    <p class="text-[10px] text-slate-400">隊伍到齊</p>
+                    <p class="text-base font-bold text-violet-400 mt-1" id="stat-teams">0 / 0</p>
+                </div>
+            </div>
+            <!-- Progress Bar -->
+            <div class="flex justify-between items-center text-xs text-slate-300 mb-1.5">
+                <span>總簽到進度</span>
+                <span id="progress-percent" class="font-bold text-indigo-400">0%</span>
+            </div>
+            <div class="w-full bg-slate-950 rounded-full h-2 border border-white/5 overflow-hidden p-0.5">
+                <div id="progress-bar" class="bg-gradient-to-r from-indigo-500 via-purple-500 to-emerald-500 h-1 rounded-full transition-all duration-500" style="width: 0%"></div>
+            </div>
+        </section>
+
+        <!-- Controls (Sticky Search & Filter Area) -->
+        <section class="space-y-3 mb-5">
+            <!-- Search Bar -->
+            <div class="relative">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400 pointer-events-none">
+                    <i class="fa-solid fa-magnifying-glass text-sm"></i>
+                </span>
+                <input type="text" id="search-input" oninput="applyFilters()"
+                    class="w-full pl-10 pr-4 py-3 bg-slate-900/60 border border-white/10 rounded-2xl text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all duration-300"
+                    placeholder="搜尋姓名、學校、隊名或身分...">
+            </div>
+
+            <!-- Roster Tabs (Team vs VIP) -->
+            <div class="flex bg-slate-900/60 p-1 rounded-xl border border-white/5">
+                <button onclick="switchTab('team')" id="tab-btn-team" class="flex-1 text-center py-2.5 rounded-lg text-xs font-bold transition-all bg-indigo-600 text-white shadow-md">
+                    <i class="fa-solid fa-users mr-1"></i> 參賽團隊
+                </button>
+                <button onclick="switchTab('vip')" id="tab-btn-vip" class="flex-1 text-center py-2.5 rounded-lg text-xs font-bold transition-all text-slate-400 hover:text-white">
+                    <i class="fa-solid fa-chess-queen mr-1"></i> 長官 / 評審
+                </button>
+            </div>
+
+            <!-- Status Tabs (All vs Checked-In vs Unregistered) -->
+            <div class="flex bg-slate-900/60 p-1 rounded-xl border border-white/5 justify-between">
+                <button onclick="setStatusFilter('all')" id="filter-btn-all" class="flex-1 text-center py-2 rounded-lg text-xs font-semibold bg-white/10 text-white transition-all">
+                    全部
+                </button>
+                <button onclick="setStatusFilter('checked')" id="filter-btn-checked" class="flex-1 text-center py-2 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition-all">
+                    已簽到
+                </button>
+                <button onclick="setStatusFilter('unchecked')" id="filter-btn-unchecked" class="flex-1 text-center py-2 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition-all">
+                    未簽到
+                </button>
+            </div>
+        </section>
+
+        <!-- Roster List Container -->
+        <main id="roster-list" class="space-y-4">
+            <!-- Dynamic Cards Load Here -->
+            <div class="text-center py-12 text-slate-500">
+                <i class="fa-solid fa-circle-notch animate-spin text-2xl text-indigo-500 mb-2"></i>
+                <p class="text-xs">載入名單中...</p>
+            </div>
+        </main>
+
+    </div>
+
+    <!-- Custom Toast Container (Toast only for status updates) -->
+    <div id="toast-container" class="fixed bottom-6 left-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global variables provided by environment or generated defaults
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'live-signin-demo-app';
+        let firebaseConfig;
+        try {
+            firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+        } catch (e) {
+            console.error("Firebase config parsing error:", e);
+        }
+
+        const baseRoster = [
+            // TEAM 6
+            { id: "t-6-1", type: "team", university: "輔仁大學", groupNo: "6", teamName: "《Re:Code~藉由圖形資料庫重啟的商業版圖~一群輔大大學生的崛起故事》", name: "曾文", title: "英文三 412110138", role: "組長" },
+            { id: "t-6-2", type: "team", university: "輔仁大學", groupNo: "6", teamName: "《Re:Code~藉由圖形資料庫重啟的商業版圖~一群輔大大學生的崛起故事》", name: "張銪", title: "英文三 412110346", role: "組員" },
+            { id: "t-6-3", type: "team", university: "輔仁大學", groupNo: "6", teamName: "《Re:Code~藉由圖形資料庫重啟的商業版圖~一群輔大大學生的崛起故事》", name: "黃楚恆", title: "英文三 412110217", role: "組員" },
+            { id: "t-6-4", type: "team", university: "輔仁大學", groupNo: "6", teamName: "《Re:Code~藉由圖形資料庫重啟的商業版圖~一群輔大大學生的崛起故事》", name: "姚相丞", title: "英文三 412110566", role: "組員" },
+            { id: "t-6-5", type: "team", university: "輔仁大學", groupNo: "6", teamName: "《Re:Code~藉由圖形資料庫重啟的商業版圖~一群輔大大學生的崛起故事》", name: "林志謙", title: "英文三 412110516", role: "組員" },
+
+            // TEAM 8
+            { id: "t-8-1", type: "team", university: "國立臺中科技大學", groupNo: "8", teamName: "只會 Vibe 的隊伍", name: "林三志", title: "資工三11411232016", role: "組員" },
+            { id: "t-8-2", type: "team", university: "國立臺中科技大學", groupNo: "8", teamName: "只會 Vibe 的隊伍", name: "謝士宏", title: "資工三21411232077", role: "組員" },
+            { id: "t-8-3", type: "team", university: "國立臺中科技大學", groupNo: "8", teamName: "只會 Vibe 的隊伍", name: "潘泓宇", title: "資工三2 1411232090", role: "組員" },
+            { id: "t-8-4", type: "team", university: "國立臺中科技大學", groupNo: "8", teamName: "只會 Vibe 的隊伍", name: "李晏昌", title: "資工三11411232015", role: "組員" },
+            { id: "t-8-5", type: "team", university: "國立臺中科技大學", groupNo: "8", teamName: "只會 Vibe 的隊伍", name: "陳羿廷", title: "資工三11411232023", role: "組員" },
+
+            // TEAM 11
+            { id: "t-11-1", type: "team", university: "輔仁大學", groupNo: "11", teamName: "Cora", name: "黃修逸", title: "軟創-514170284", role: "組員" },
+            { id: "t-11-2", type: "team", university: "輔仁大學", groupNo: "11", teamName: "Cora", name: "邱冠傑", title: "軟創-514170014", role: "組員" },
+            { id: "t-11-3", type: "team", university: "輔仁大學", groupNo: "11", teamName: "Cora", name: "吳芯沫", title: "軟創-514170363", role: "組員" },
+            { id: "t-11-4", type: "team", university: "輔仁大學", groupNo: "11", teamName: "Cora", name: "陳哲豪", title: "軟創-514170052", role: "組員" },
+            { id: "t-11-5", type: "team", university: "輔仁大學", groupNo: "11", teamName: "Cora", name: "莊鈞全", title: "軟創-514170026", role: "組員" },
+
+            // TEAM 23
+            { id: "t-23-1", type: "team", university: "輔仁大學", groupNo: "23", teamName: "你說的都隊", name: "余承怡", title: "英文三412110126", role: "組員" },
+            { id: "t-23-2", type: "team", university: "輔仁大學", groupNo: "23", teamName: "你說的都隊", name: "林暐宸", title: "英文三412110322", role: "組員" },
+            { id: "t-23-3", type: "team", university: "輔仁大學", groupNo: "23", teamName: "你說的都隊", name: "魏榆晴", title: "科創二 413600219", role: "組員" },
+
+            // TEAM 26
+            { id: "t-26-1", type: "team", university: "國立臺灣科技大學", groupNo: "26", teamName: "春日部防衛隊", name: "沈婉蓁", title: "資管碩一 M11409107", role: "組員" },
+            { id: "t-26-2", type: "team", university: "國立臺灣科技大學", groupNo: "26", teamName: "春日部防衛隊", name: "王孟蘋", title: "資管碩一 M11409105", role: "組員" },
+            { id: "t-26-3", type: "team", university: "國立臺灣科技大學", groupNo: "26", teamName: "春日部防衛隊", name: "吳映潔", title: "資管碩一 M11409102", role: "組員" },
+            { id: "t-26-4", type: "team", university: "國立臺灣科技大學", groupNo: "26", teamName: "春日部防衛隊", name: "孫耀庭", title: "資管碩二 M11309101", role: "組員" },
+            { id: "t-26-5", type: "team", university: "國立臺灣科技大學", groupNo: "26", teamName: "春日部防衛隊", name: "白于萱", title: "資管碩一 M11409101", role: "組員" },
+
+            // TEAM 31
+            { id: "t-31-1", type: "team", university: "國立中央大學", groupNo: "31", teamName: "さ", name: "李峻瑋", title: "資管三 112403059", role: "組員" },
+            { id: "t-31-2", type: "team", university: "國立中央大學", groupNo: "31", teamName: "さ", name: "郭宇恒", title: "資管三 112403062", role: "組員" },
+            { id: "t-31-3", type: "team", university: "國立中央大學", groupNo: "31", teamName: "さ", name: "廖堇辰", title: "資管三 112403502", role: "組員" },
+            { id: "t-31-4", type: "team", university: "國立中央大學", groupNo: "31", teamName: "さ", name: "張昀暐", title: "資管三 112403514", role: "組員" },
+            { id: "t-31-5", type: "team", university: "國立中央大學", groupNo: "31", teamName: "さ", name: "張薰文", title: "資管三 112403504", role: "組員" },
+
+            // TEAM 32
+            { id: "t-32-1", type: "team", university: "輔仁大學/陽明交通大學", groupNo: "32", teamName: "Safari叫爸爸", name: "江慶子", title: "輔大醫資/網安一 414580662", role: "組員" },
+            { id: "t-32-2", type: "team", university: "輔仁大學/陽明交通大學", groupNo: "32", teamName: "Safari叫爸爸", name: "彭念祖", title: "交大資工-114550064", role: "組員" },
+
+            // TEAM 37
+            { id: "t-37-1", type: "team", university: "國立中央大學", groupNo: "37", teamName: "留友參加", name: "楊信柏", title: "資管大三 112403515", role: "組員" },
+            { id: "t-37-2", type: "team", university: "國立中央大學", groupNo: "37", teamName: "留友參加", name: "李芝瑢", title: "資管碩-114423028", role: "組員" },
+            { id: "t-37-3", type: "team", university: "國立中央大學", groupNo: "37", teamName: "留友參加", name: "謝侑明", title: "資管碩-114423065", role: "組員" },
+
+            // TEAM 39
+            { id: "t-39-1", type: "team", university: "輔仁大學", groupNo: "39", teamName: "輔大軟創", name: "郭士魁", title: "軟創四 511172217", role: "組員" },
+            { id: "t-39-2", type: "team", university: "輔仁大學", groupNo: "39", teamName: "輔大軟創", name: "潘敬錞", title: "軟創四 510171307", role: "組員" },
+
+            // TEAM 46
+            { id: "t-46-1", type: "team", university: "輔仁大學", groupNo: "46", teamName: "鼠巴拉系", name: "廖品丞", title: "醫資三 412570132", role: "組員" },
+            { id: "t-46-2", type: "team", university: "輔仁大學", groupNo: "46", teamName: "鼠巴拉系", name: "趙柏婷", title: "醫資三 412570455", role: "組員" },
+            { id: "t-46-3", type: "team", university: "輔仁大學", groupNo: "46", teamName: "鼠巴拉系", name: "楊蕙瑄", title: "醫資三 412570120", role: "組員" },
+            { id: "t-46-4", type: "team", university: "輔仁大學", groupNo: "46", teamName: "鼠巴拉系", name: "潘姵蓁", title: "醫資三 412570211", role: "組員" },
+            { id: "t-46-5", type: "team", university: "輔仁大學", groupNo: "46", teamName: "鼠巴拉系", name: "陳芳俞", title: "醫資三 412570388", role: "組員" },
+
+            // TEAM 48
+            { id: "t-48-1", type: "team", university: "輔仁大學", groupNo: "48", teamName: "極品智囊團", name: "施婷", title: "金融國企四 411411573", role: "組員" },
+            { id: "t-48-2", type: "team", university: "輔仁大學", groupNo: "48", teamName: "極品智囊團", name: "譚宇琇", title: "資安學程大四 411580427", role: "組員" },
+            { id: "t-48-3", type: "team", university: "輔仁大學", groupNo: "48", teamName: "極品智囊團", name: "林昀萱", title: "企管大四乙 411382679", role: "組員" },
+
+            // TEAM 57
+            { id: "t-57-1", type: "team", university: "國立中央大學", groupNo: "57", teamName: "咕咕嘎嘎", name: "孔祥儀", title: "資管三 112403038", role: "組員" },
+            { id: "t-57-2", type: "team", university: "國立中央大學", groupNo: "57", teamName: "咕咕嘎嘎", name: "吳育嫻", title: "資管三 112403530", role: "組員" },
+            { id: "t-57-3", type: "team", university: "國立中央大學", groupNo: "57", teamName: "咕咕嘎嘎", name: "周佳穎", title: "資管三 112403508", role: "組員" },
+            { id: "t-57-4", type: "team", university: "國立中央大學", groupNo: "57", teamName: "咕咕嘎嘎", name: "黃偉閎", title: "資管三 112403524", role: "組員" },
+            { id: "t-57-5", type: "team", university: "國立中央大學", groupNo: "57", teamName: "咕咕嘎嘎", name: "邱馨儀", title: "企管三 112401517", role: "組員" },
+
+            // TEAM 64
+            { id: "t-64-1", type: "team", university: "國立中央大學", groupNo: "64", teamName: "歐卡", name: "陳少昀", title: "資管二 113403510", role: "組員" },
+            { id: "t-64-2", type: "team", university: "國立中央大學", groupNo: "64", teamName: "歐卡", name: "盧子齊", title: "機械3C 112303313", role: "組員" },
+            { id: "t-64-3", type: "team", university: "國立中央大學", groupNo: "64", teamName: "歐卡", name: "蔡承諺", title: "資工2B 113403522", role: "組員" },
+            { id: "t-64-4", type: "team", university: "國立中央大學", groupNo: "64", teamName: "歐卡", name: "黃品誠", title: "物理碩二 113222021", role: "組員" },
+
+            // TEAM 61
+            { id: "t-61-1", type: "team", university: "輔仁大學", groupNo: "61", teamName: "崴孟受一點傷", name: "郭驊鋒", title: "企管三丙 412383280", role: "組員" },
+            { id: "t-61-2", type: "team", university: "輔仁大學", groupNo: "61", teamName: "崴孟受一點傷", name: "朱宸瑋", title: "企管三丙 412383644", role: "組員" },
+
+            // VIPs
+            { id: "vip-1", type: "vip", university: "長官/評審", groupNo: "VIP", teamName: "長官/評審", name: "林宗瀛", title: "長官/老師", role: "長官/老師" },
+            { id: "vip-2", type: "vip", university: "長官/評審", groupNo: "VIP", teamName: "長官/評審", name: "劉紀雯", title: "長官/老師", role: "長官/老師" },
+            { id: "vip-3", type: "vip", university: "長官/評審", groupNo: "VIP", teamName: "長官/評審", name: "周岫琴", title: "長官/老師", role: "長官/老師" },
+            { id: "vip-4", type: "vip", university: "長官/評審", groupNo: "VIP", teamName: "長官/評審", name: "蔡宗佑", title: "長官/老師", role: "長官/老師" },
+            { id: "vip-5", type: "vip", university: "長官/評審", groupNo: "VIP", teamName: "長官/評審", name: "劉富容", title: "長官/老師", role: "長官/老師" },
+            { id: "vip-6", type: "vip", university: "長官/評審", groupNo: "VIP", teamName: "長官/評審", name: "馬政琪", title: "長官/老師", role: "長官/老師" },
+            { id: "vip-7", type: "vip", university: "長官/評審", groupNo: "VIP", teamName: "長官/評審", name: "梁義俊", title: "長官/老師", role: "長官/老師" },
+            { id: "vip-8", type: "vip", university: "長官/評審", groupNo: "VIP", teamName: "長官/評審", name: "吳季有", title: "長官/老師", role: "長官/老師" },
+            { id: "vip-9", type: "vip", university: "長官/評審", groupNo: "VIP", teamName: "長官/評審", name: "陶靖霖", title: "長官/老師", role: "長官/老師" },
+            { id: "vip-10", type: "vip", university: "長官/評審", groupNo: "VIP", teamName: "長官/評審", name: "曾明怡", title: "長官/老師", role: "長官/老師" },
+            { id: "vip-11", type: "vip", university: "長官/評審", groupNo: "VIP", teamName: "長官/評審", name: "賴韋伶", title: "長官/老師", role: "長官/老師" },
+            { id: "vip-12", type: "vip", university: "長官/評審", groupNo: "VIP", teamName: "長官/評審", name: "林淑嘉", title: "長官/老師", role: "長官/老師" },
+            { id: "vip-13", type: "vip", university: "長官/評審", groupNo: "VIP", teamName: "長官/評審", name: "鄭志蓉 Miranda", title: "長官/老師", role: "長官/老師" },
+            { id: "vip-14", type: "vip", university: "長官/評審", groupNo: "VIP", teamName: "長官/評審", name: "蘇敬雯 Gina", title: "長官/老師", role: "長官/老師" },
+            { id: "vip-15", type: "vip", university: "長官/評審", groupNo: "VIP", teamName: "長官/評審", name: "滕柏翰 Bob", title: "長官/老師", role: "長官/老師" },
+            { id: "vip-16", type: "vip", university: "長官/評審", groupNo: "VIP", teamName: "長官/評審", name: "劉益慈 Ada", title: "長官/老師", role: "長官/老師" },
+            { id: "vip-17", type: "vip", university: "長官/評審", groupNo: "VIP", teamName: "長官/評審", name: "Joyce", title: "長官/老師", role: "外賓" },
+            { id: "vip-18", type: "vip", university: "長官/評審", groupNo: "VIP", teamName: "長官/評審", name: "Thomas", title: "長官/老師", role: "外賓" },
+        ];
+
+        let db;
+        let isFirebaseConnected = false;
+        let activeTab = 'team'; // 'team' | 'vip'
+        let statusFilter = 'all'; // 'all' | 'checked' | 'unchecked'
+        let checkInStates = {};
+
+        const LOCAL_STORAGE_KEY = 'sys_2026_checkin_state';
+
+        async function initializeDatabase() {
+            const statusEl = document.getElementById('connection-status');
+
+            // Load local persistence backup
+            loadLocalStorageState();
+
+            if (!firebaseConfig) {
+                console.warn("Firebase configuration missing. Using local storage data.");
+                statusEl.innerHTML = "離線唯讀模式 (資料讀取本機緩存)";
+                statusEl.className = "text-xs text-amber-500 flex items-center justify-center gap-1.5";
+                renderUI();
+                return;
+            }
+
+            try {
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                const auth = getAuth(app);
+                await signInAnonymously(auth);
+
+                isFirebaseConnected = true;
+                statusEl.innerHTML = "已連線至實時雲端資料庫 (免登入)";
+                statusEl.className = "text-xs text-emerald-400 flex items-center justify-center gap-1.5";
+
+                setupRealtimeSync();
+
+            } catch (error) {
+                console.error("Firebase connection failed:", error);
+                statusEl.innerHTML = "連線異常 (載入本地備份資料)";
+                statusEl.className = "text-xs text-red-400 flex items-center justify-center gap-1.5";
+                renderUI();
+            }
+        }
+
+        function setupRealtimeSync() {
+            const checkinCol = collection(db, 'artifacts', appId, 'public', 'data', 'checkins_2026');
+
+            onSnapshot(checkinCol, (snapshot) => {
+                let incomingStates = {};
+                snapshot.forEach((doc) => {
+                    incomingStates[doc.id] = doc.data();
+                });
+
+                // Display notifications on new check-ins
+                detectAndAnnounceChanges(incomingStates);
+
+                checkInStates = incomingStates;
+                localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(checkInStates));
+                renderUI();
+            }, (error) => {
+                console.error("Firestore sync error:", error);
+            });
+        }
+
+        function loadLocalStorageState() {
+            const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
+            if (raw) {
+                try {
+                    checkInStates = JSON.parse(raw);
+                } catch(e) {
+                    checkInStates = {};
+                }
+            }
+        }
+
+        function detectAndAnnounceChanges(newStates) {
+            for (const [id, data] of Object.entries(newStates)) {
+                const oldData = checkInStates[id];
+                if (data.checkedIn && (!oldData || !oldData.checkedIn)) {
+                    const person = baseRoster.find(p => p.id === id);
+                    if (person) {
+                        showToast(`🎉 ${person.name} (${person.university}) 剛剛完成簽到！`, "success");
+                    }
+                }
+            }
+        }
+
+        function showToast(message, type = "info") {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            let bgClass = "bg-slate-900/90 text-slate-100 border-l-4 border-indigo-500 shadow-2xl glass-card";
+            if (type === "success") bgClass = "bg-emerald-950/95 border border-emerald-500/30 text-emerald-200 shadow-lg shadow-emerald-500/10";
+            
+            toast.className = `${bgClass} flex items-center gap-3 p-3.5 rounded-xl text-xs font-medium transition-all duration-300 opacity-0 transform translate-y-3 pointer-events-auto w-full`;
+            toast.innerHTML = `
+                <i class="fa-solid fa-circle-check text-emerald-400 text-sm shrink-0"></i>
+                <div class="leading-relaxed truncate">${message}</div>
+            `;
+
+            container.appendChild(toast);
+            setTimeout(() => toast.classList.remove('opacity-0', 'translate-y-3'), 10);
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-[-10px]');
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
+
+        window.switchTab = function(tabName) {
+            activeTab = tabName;
+            const teamBtn = document.getElementById('tab-btn-team');
+            const vipBtn = document.getElementById('tab-btn-vip');
+
+            if (tabName === 'team') {
+                teamBtn.className = "flex-1 text-center py-2.5 rounded-lg text-xs font-bold transition-all bg-indigo-600 text-white shadow-md";
+                vipBtn.className = "flex-1 text-center py-2.5 rounded-lg text-xs font-bold transition-all text-slate-400 hover:text-white";
+            } else {
+                vipBtn.className = "flex-1 text-center py-2.5 rounded-lg text-xs font-bold transition-all bg-indigo-600 text-white shadow-md";
+                teamBtn.className = "flex-1 text-center py-2.5 rounded-lg text-xs font-bold transition-all text-slate-400 hover:text-white";
+            }
+            renderUI();
+        };
+
+        window.setStatusFilter = function(filter) {
+            statusFilter = filter;
+            const buttons = ['all', 'checked', 'unchecked'];
+            buttons.forEach(btn => {
+                const el = document.getElementById(`filter-btn-${btn}`);
+                if (btn === filter) {
+                    el.className = "flex-1 text-center py-2 rounded-lg text-xs font-semibold bg-white/10 text-white transition-all";
+                } else {
+                    el.className = "flex-1 text-center py-2 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition-all";
+                }
+            });
+            renderUI();
+        };
+
+        window.applyFilters = function() {
+            renderUI();
+        };
+
+        function renderUI() {
+            const container = document.getElementById('roster-list');
+            const searchVal = document.getElementById('search-input').value.trim().toLowerCase();
+
+            // 1. Filter by Tab (team or vip)
+            const tabRoster = baseRoster.filter(p => p.type === activeTab);
+
+            // 2. Filter by Status (all, checked, unchecked)
+            const statusFiltered = tabRoster.filter(p => {
+                const isChecked = checkInStates[p.id]?.checkedIn || false;
+                if (statusFilter === 'checked') return isChecked;
+                if (statusFilter === 'unchecked') return !isChecked;
+                return true;
+            });
+
+            // 3. Filter by Search Query
+            const finalRoster = statusFiltered.filter(p => {
+                if (!searchVal) return true;
+                return p.name.toLowerCase().includes(searchVal) ||
+                       p.university.toLowerCase().includes(searchVal) ||
+                       p.teamName.toLowerCase().includes(searchVal) ||
+                       p.title.toLowerCase().includes(searchVal);
+            });
+
+            // Update stats
+            updateStats();
+
+            // Render Roster list
+            if (finalRoster.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-12 text-slate-500 border border-dashed border-white/5 rounded-2xl bg-slate-900/10">
+                        <i class="fa-regular fa-face-frown text-xl mb-2 text-slate-600"></i>
+                        <p class="text-xs">查無符合搜尋條件的名單</p>
+                    </div>
+                `;
+                return;
+            }
+
+            if (activeTab === 'vip') {
+                container.innerHTML = finalRoster.map(p => renderVipCard(p)).join('');
+            } else {
+                // Group students by team
+                const grouped = {};
+                finalRoster.forEach(p => {
+                    if (!grouped[p.groupNo]) {
+                        grouped[p.groupNo] = {
+                            groupNo: p.groupNo,
+                            university: p.university,
+                            teamName: p.teamName,
+                            members: []
+                        };
+                    }
+                    grouped[p.groupNo].members.push(p);
+                });
+
+                container.innerHTML = Object.values(grouped).map(team => renderTeamCard(team)).join('');
+            }
+        }
+
+        function renderVipCard(vip) {
+            const isChecked = checkInStates[vip.id]?.checkedIn || false;
+            const timeStr = isChecked && checkInStates[vip.id]?.timestamp ? formatTimeOnly(checkInStates[vip.id].timestamp) : '';
+            const initials = vip.name.slice(-2);
+
+            return `
+                <div class="glass-card rounded-2xl p-4 flex items-center justify-between border ${isChecked ? 'border-emerald-500/20 bg-emerald-950/5' : 'border-white/5'}">
+                    <div class="flex items-center gap-3">
+                        <div class="h-9 w-9 rounded-xl bg-gradient-to-tr from-amber-600 to-orange-600 text-white flex items-center justify-center font-bold text-xs shrink-0">
+                            ${initials}
+                        </div>
+                        <div>
+                            <span class="font-bold text-white text-sm">${escapeHTML(vip.name)}</span>
+                            <span class="text-[10px] text-slate-400 block mt-0.5">${escapeHTML(vip.role)} | ${escapeHTML(vip.university)}</span>
+                        </div>
+                    </div>
+                    <div>
+                        ${isChecked ? `
+                            <div class="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5">
+                                <i class="fa-solid fa-circle-check text-[10px]"></i>
+                                <span>已簽到 ${timeStr}</span>
+                            </div>
+                        ` : `
+                            <div class="bg-slate-900/80 border border-white/5 text-slate-400 px-2.5 py-1 rounded-lg text-xs font-medium flex items-center gap-1.5">
+                                <i class="fa-regular fa-clock text-[10px]"></i>
+                                <span>未簽到</span>
+                            </div>
+                        `}
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderTeamCard(team) {
+            const totalMembers = baseRoster.filter(p => p.type === 'team' && p.groupNo === team.groupNo).length;
+            const checkedMembers = team.members.filter(m => checkInStates[m.id]?.checkedIn).length;
+            const isTeamAllChecked = team.members.every(m => checkInStates[m.id]?.checkedIn === true) && (team.members.length === totalMembers);
+
+            return `
+                <div class="glass-card rounded-2xl p-4 border border-white/5 relative overflow-hidden">
+                    ${isTeamAllChecked ? `
+                        <div class="absolute top-0 right-0 bg-emerald-500/20 text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded-bl border-l border-b border-emerald-500/20">全員到齊</div>
+                    ` : ''}
+                    <div class="border-b border-white/5 pb-2 mb-3">
+                        <span class="text-[10px] font-bold text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">第 ${team.groupNo} 組</span>
+                        <h3 class="font-bold text-white text-sm mt-1 leading-snug">${escapeHTML(team.teamName)}</h3>
+                        <p class="text-xs text-slate-400 mt-1 flex items-center gap-1">
+                            <i class="fa-solid fa-graduation-cap text-indigo-400"></i> ${escapeHTML(team.university)}
+                        </p>
+                    </div>
+                    <div class="space-y-2">
+                        ${team.members.map(m => {
+                            const isChecked = checkInStates[m.id]?.checkedIn || false;
+                            const timeStr = isChecked && checkInStates[m.id]?.timestamp ? formatTimeOnly(checkInStates[m.id].timestamp) : '';
+                            return `
+                                <div class="flex items-center justify-between py-1.5 border-b border-white/5 last:border-0 last:pb-0">
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-slate-200 text-sm font-semibold">${escapeHTML(m.name)}</span>
+                                        ${m.role === '組長' ? '<span class="text-[9px] bg-amber-500/10 text-amber-400 border border-amber-500/20 px-1 py-0.1 rounded shrink-0">組長</span>' : ''}
+                                        <span class="text-[10px] text-slate-500 truncate max-w-[120px]">${escapeHTML(m.title)}</span>
+                                    </div>
+                                    <div>
+                                        ${isChecked ? `
+                                            <span class="text-[10px] font-bold text-emerald-400 flex items-center gap-1">
+                                                <i class="fa-solid fa-check text-[9px]"></i> 已簽到 ${timeStr}
+                                            </span>
+                                        ` : `
+                                            <span class="text-[10px] text-slate-500 flex items-center gap-1">
+                                                <i class="fa-regular fa-circle text-[9px]"></i> 未簽到
+                                            </span>
+                                        `}
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        function updateStats() {
+            const studentRoster = baseRoster.filter(p => p.type === 'team');
+            const vipRoster = baseRoster.filter(p => p.type === 'vip');
+
+            const checkedStudents = studentRoster.filter(p => checkInStates[p.id]?.checkedIn).length;
+            const checkedVips = vipRoster.filter(p => checkInStates[p.id]?.checkedIn).length;
+
+            const allTeamIDs = [...new Set(studentRoster.map(p => p.groupNo))];
+            let completedTeams = 0;
+            allTeamIDs.forEach(groupNo => {
+                const members = studentRoster.filter(p => p.groupNo === groupNo);
+                if (members.every(m => checkInStates[m.id]?.checkedIn)) {
+                    completedTeams++;
+                }
+            });
+
+            document.getElementById('stat-students').textContent = `${checkedStudents} / ${studentRoster.length}`;
+            document.getElementById('stat-vips').textContent = `${checkedVips} / ${vipRoster.length}`;
+            document.getElementById('stat-teams').textContent = `${completedTeams} / ${allTeamIDs.length}`;
+
+            const totalPeople = baseRoster.length;
+            const totalChecked = baseRoster.filter(p => checkInStates[p.id]?.checkedIn).length;
+            const percent = totalPeople > 0 ? Math.round((totalChecked / totalPeople) * 100) : 0;
+
+            document.getElementById('progress-percent').textContent = `${percent}%`;
+            document.getElementById('progress-bar').style.width = `${percent}%`;
+        }
+
+        function formatTimeOnly(ms) {
+            const date = new Date(ms);
+            const pad = (n) => n.toString().padStart(2, '0');
+            return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+        }
+
+        function escapeHTML(str) {
+            if (!str) return '';
+            return str.replace(/[&<>'"]/g, 
+                tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
+            );
+        }
+
+        window.onload = function() {
+            initializeDatabase();
+        };
+    </script>
+</body>
+</html>
