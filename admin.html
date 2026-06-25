@@ -247,10 +247,20 @@
             </div>
         </div>
 
+        <!-- Mobile Zone Toggle (Only visible on screens below lg) -->
+        <div class="flex lg:hidden bg-slate-900/60 p-1 rounded-xl border border-white/5 mb-4 w-full">
+            <button onclick="switchZone('unregistered')" id="zone-btn-unregistered" class="flex-1 text-center py-2.5 rounded-lg text-xs font-bold transition-all bg-indigo-600 text-white shadow-md">
+                未簽到名單
+            </button>
+            <button onclick="switchZone('registered')" id="zone-btn-registered" class="flex-1 text-center py-2.5 rounded-lg text-xs font-bold transition-all text-slate-400 hover:text-white">
+                已簽到名單
+            </button>
+        </div>
+
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
             
             <!-- LEFT COLUMN: UNREGISTERED ZONE -->
-            <div class="lg:col-span-6 flex flex-col h-full">
+            <div id="unregistered-column" class="lg:col-span-6 flex flex-col h-full lg:flex">
                 <div class="glass-panel rounded-3xl p-5 md:p-6 border border-white/10 flex-grow flex flex-col shadow-xl">
                     <div class="flex justify-between items-center mb-4 border-b border-white/5 pb-4">
                         <div>
@@ -271,7 +281,7 @@
             </div>
 
             <!-- RIGHT COLUMN: REGISTERED ZONE -->
-            <div class="lg:col-span-6 flex flex-col h-full">
+            <div id="registered-column" class="lg:col-span-6 flex flex-col h-full hidden lg:flex">
                 <div class="glass-panel rounded-3xl p-5 md:p-6 border border-white/10 flex-grow flex flex-col shadow-xl">
                     <div class="flex justify-between items-center mb-4 border-b border-white/5 pb-4">
                         <div>
@@ -853,6 +863,25 @@
             const id = e.dataTransfer.getData("text/plain");
             if (id) {
                 setCheckInState(id, isCheckedInTarget);
+            }
+        };
+
+        window.switchZone = function(zoneName) {
+            const unregCol = document.getElementById('unregistered-column');
+            const regCol = document.getElementById('registered-column');
+            const unregBtn = document.getElementById('zone-btn-unregistered');
+            const regBtn = document.getElementById('zone-btn-registered');
+
+            if (zoneName === 'unregistered') {
+                unregCol.classList.remove('hidden');
+                regCol.classList.add('hidden');
+                unregBtn.className = "flex-1 text-center py-2.5 rounded-lg text-xs font-bold transition-all bg-indigo-600 text-white shadow-md";
+                regBtn.className = "flex-1 text-center py-2.5 rounded-lg text-xs font-bold transition-all text-slate-400 hover:text-white";
+            } else {
+                regCol.classList.remove('hidden');
+                unregCol.classList.add('hidden');
+                regBtn.className = "flex-1 text-center py-2.5 rounded-lg text-xs font-bold transition-all bg-indigo-600 text-white shadow-md";
+                unregBtn.className = "flex-1 text-center py-2.5 rounded-lg text-xs font-bold transition-all text-slate-400 hover:text-white";
             }
         };
 
