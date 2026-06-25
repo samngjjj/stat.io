@@ -138,18 +138,11 @@
     <div id="toast-container" class="fixed bottom-6 left-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"></div>
 
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
-        // Global variables provided by environment or generated defaults
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'live-signin-demo-app';
-        let firebaseConfig;
-        try {
-            firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
-        } catch (e) {
-            console.error("Firebase config parsing error:", e);
-        }
+        const supabaseUrl = 'https://uavgvozfnuzykfwlqdzh.supabase.co';
+        const supabaseKey = 'sb_publishable_8rPsh3mrM0Kxyfh7dU8rQw_TUvlVXr_';
+        const supabase = createClient(supabaseUrl, supabaseKey);
 
         const baseRoster = [
             // TEAM 6
@@ -255,8 +248,7 @@
             { id: "vip-18", type: "vip", university: "長官/評審", groupNo: "VIP", teamName: "長官/評審", name: "Thomas", title: "長官/老師", role: "外賓" },
         ];
 
-        let db;
-        let isFirebaseConnected = false;
+        let isSupabaseConnected = false;
         let activeTab = 'team'; // 'team' | 'vip'
         let statusFilter = 'all'; // 'all' | 'checked' | 'unchecked'
         let checkInStates = {};
@@ -269,52 +261,74 @@
             // Load local persistence backup
             loadLocalStorageState();
 
-            if (!firebaseConfig) {
-                console.warn("Firebase configuration missing. Using local storage data.");
-                statusEl.innerHTML = "離線唯讀模式 (資料讀取本機緩存)";
-                statusEl.className = "text-xs text-amber-500 flex items-center justify-center gap-1.5";
-                renderUI();
-                return;
-            }
-
             try {
-                const app = initializeApp(firebaseConfig);
-                db = getFirestore(app);
-                const auth = getAuth(app);
-                await signInAnonymously(auth);
+                // Fetch checkin data from Supabase
+                const { data, error } = await supabase.from('checkins').select('*');
+                if (error) throw error;
 
-                isFirebaseConnected = true;
-                statusEl.innerHTML = "已連線至實時雲端資料庫 (免登入)";
+                let loadedStates = {};
+                if (data) {
+                    data.forEach(row => {
+                        loadedStates[row.id] = {
+                            checkedIn: row.checked_in,
+                            timestamp: row.timestamp,
+                            updatedBy: row.updated_by
+                        };
+                    });
+                }
+
+                checkInStates = loadedStates;
+                localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(checkInStates));
+
+                isSupabaseConnected = true;
+                statusEl.innerHTML = "已連線至 Supabase 實時資料庫 (免登入)";
                 statusEl.className = "text-xs text-emerald-400 flex items-center justify-center gap-1.5";
 
+                renderUI();
                 setupRealtimeSync();
 
             } catch (error) {
-                console.error("Firebase connection failed:", error);
+                console.error("Supabase connection failed:", error);
                 statusEl.innerHTML = "連線異常 (載入本地備份資料)";
                 statusEl.className = "text-xs text-red-400 flex items-center justify-center gap-1.5";
                 renderUI();
             }
         }
 
+        let realtimeChannel;
         function setupRealtimeSync() {
-            const checkinCol = collection(db, 'artifacts', appId, 'public', 'data', 'checkins_2026');
+            realtimeChannel = supabase
+                .channel('schema-db-changes')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'checkins' }, (payload) => {
+                    const row = payload.new;
+                    const oldRow = payload.old;
+                    const eventType = payload.eventType;
 
-            onSnapshot(checkinCol, (snapshot) => {
-                let incomingStates = {};
-                snapshot.forEach((doc) => {
-                    incomingStates[doc.id] = doc.data();
-                });
+                    let newStates = { ...checkInStates };
 
-                // Display notifications on new check-ins
-                detectAndAnnounceChanges(incomingStates);
+                    if (eventType === 'DELETE') {
+                        const deletedId = oldRow.id;
+                        newStates[deletedId] = {
+                            checkedIn: false,
+                            timestamp: null,
+                            updatedBy: null
+                        };
+                    } else if (row) {
+                        newStates[row.id] = {
+                            checkedIn: row.checked_in,
+                            timestamp: row.timestamp,
+                            updatedBy: row.updated_by
+                        };
+                    }
 
-                checkInStates = incomingStates;
-                localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(checkInStates));
-                renderUI();
-            }, (error) => {
-                console.error("Firestore sync error:", error);
-            });
+                    // Display notifications on new check-ins
+                    detectAndAnnounceChanges(newStates);
+
+                    checkInStates = newStates;
+                    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(checkInStates));
+                    renderUI();
+                })
+                .subscribe();
         }
 
         function loadLocalStorageState() {

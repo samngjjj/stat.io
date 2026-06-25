@@ -308,18 +308,11 @@
     <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col gap-3 max-w-sm w-full pointer-events-none"></div>
 
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
-        // Global variables provided by environment or generated defaults
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'live-signin-demo-app';
-        let firebaseConfig;
-        try {
-            firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
-        } catch (e) {
-            console.error("Firebase config parsing error:", e);
-        }
+        const supabaseUrl = 'https://uavgvozfnuzykfwlqdzh.supabase.co';
+        const supabaseKey = 'sb_publishable_8rPsh3mrM0Kxyfh7dU8rQw_TUvlVXr_';
+        const supabase = createClient(supabaseUrl, supabaseKey);
 
         const baseRoster = [
             // TEAM 6
@@ -425,8 +418,7 @@
             { id: "vip-18", type: "vip", university: "長官/評審", groupNo: "VIP", teamName: "長官/評審", name: "Thomas", title: "長官/老師", role: "外賓" },
         ];
 
-        let db, auth;
-        let isFirebaseConnected = false;
+        let isSupabaseConnected = false;
         let activeTab = 'team'; // 'team' | 'vip'
         let layoutMode = 'grouped'; // 'grouped' | 'individual'
         let currentUserId = 'guest_' + Math.random().toString(36).substr(2, 9);
@@ -444,38 +436,37 @@
             // Initialize default local state first
             loadLocalStorageState();
 
-            if (!firebaseConfig) {
-                console.warn("Firebase configuration missing. Using client LocalStorage simulation.");
-                statusEl.innerHTML = "離線模擬模式 (資料保存在本地瀏覽器)";
-                statusEl.parentElement.querySelector('span span:last-child').className = "relative inline-flex rounded-full h-2 w-2 bg-amber-500";
-                userBadgeEl.textContent = currentUserId;
-                renderUI();
-                return;
-            }
-
             try {
-                const app = initializeApp(firebaseConfig);
-                db = getFirestore(app);
-                auth = getAuth(app);
+                // Fetch checkin data from Supabase
+                const { data, error } = await supabase.from('checkins').select('*');
+                if (error) throw error;
 
-                let userCredential;
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    userCredential = await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    userCredential = await signInAnonymously(auth);
+                let loadedStates = {};
+                if (data) {
+                    data.forEach(row => {
+                        loadedStates[row.id] = {
+                            checkedIn: row.checked_in,
+                            timestamp: row.timestamp,
+                            updatedBy: row.updated_by
+                        };
+                    });
                 }
 
-                currentUserId = userCredential.user.uid;
-                userBadgeEl.textContent = currentUserId;
-                isFirebaseConnected = true;
+                checkInStates = loadedStates;
+                localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(checkInStates));
 
-                statusEl.innerHTML = "已連線至 SYSTEX 實時雲端資料庫";
+                currentUserId = 'admin_' + Math.random().toString(36).substr(2, 5);
+                userBadgeEl.textContent = currentUserId;
+                isSupabaseConnected = true;
+
+                statusEl.innerHTML = "已連線至 Supabase 實時資料庫";
                 statusEl.parentElement.querySelector('span span:last-child').className = "relative inline-flex rounded-full h-2 w-2 bg-emerald-500";
 
+                renderUI();
                 setupRealtimeSync();
 
             } catch (error) {
-                console.error("Firebase connection failed:", error);
+                console.error("Supabase connection failed:", error);
                 statusEl.innerHTML = "連線失敗 (使用模擬本地存儲)";
                 statusEl.parentElement.querySelector('span span:last-child').className = "relative inline-flex rounded-full h-2 w-2 bg-red-500";
                 userBadgeEl.textContent = currentUserId;
@@ -484,27 +475,40 @@
             }
         }
 
+        let realtimeChannel;
         function setupRealtimeSync() {
-            // Firestore Collection Path compliance: artifacts/{appId}/public/data/checkins_2026
-            const checkinCol = collection(db, 'artifacts', appId, 'public', 'data', 'checkins_2026');
+            realtimeChannel = supabase
+                .channel('schema-db-changes')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'checkins' }, (payload) => {
+                    const row = payload.new;
+                    const oldRow = payload.old;
+                    const eventType = payload.eventType;
 
-            onSnapshot(checkinCol, (snapshot) => {
-                let incomingStates = {};
-                snapshot.forEach((doc) => {
-                    incomingStates[doc.id] = doc.data();
-                });
+                    let newStates = { ...checkInStates };
 
-                // Merge and identify remote updates to trigger announcements or celebrations
-                detectAndAnnounceChanges(incomingStates);
+                    if (eventType === 'DELETE') {
+                        const deletedId = oldRow.id;
+                        newStates[deletedId] = {
+                            checkedIn: false,
+                            timestamp: null,
+                            updatedBy: null
+                        };
+                    } else if (row) {
+                        newStates[row.id] = {
+                            checkedIn: row.checked_in,
+                            timestamp: row.timestamp,
+                            updatedBy: row.updated_by
+                        };
+                    }
 
-                checkInStates = incomingStates;
-                // Save to local as backup
-                localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(checkInStates));
-                renderUI();
-            }, (error) => {
-                console.error("Firestore sync error:", error);
-                showToast("同步雲端資料庫時發生異常", "error");
-            });
+                    // Merge and identify remote updates to trigger announcements or celebrations
+                    detectAndAnnounceChanges(newStates);
+
+                    checkInStates = newStates;
+                    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(checkInStates));
+                    renderUI();
+                })
+                .subscribe();
         }
 
         function loadLocalStorageState() {
@@ -592,17 +596,26 @@
                 updatedBy: currentUserId
             };
 
-            if (isFirebaseConnected) {
+            // Optimistic update locally
+            const simulatedNewState = { ...checkInStates, [id]: state };
+            detectAndAnnounceChanges(simulatedNewState);
+            checkInStates = simulatedNewState;
+            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(checkInStates));
+            renderUI();
+
+            if (isSupabaseConnected) {
                 try {
-                    const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'checkins_2026', id);
-                    await setDoc(docRef, state, { merge: true });
+                    const { error } = await supabase.from('checkins').upsert({
+                        id: id,
+                        checked_in: isCheckedIn,
+                        timestamp: isCheckedIn ? Date.now() : null,
+                        updated_by: currentUserId
+                    });
+                    if (error) throw error;
                 } catch(err) {
-                    console.error("Error setting state in Firebase:", err);
+                    console.error("Error setting state in Supabase:", err);
                     showToast("網路延遲，已將變更儲存至本機快取", "error");
-                    simulateOfflineSave(id, state);
                 }
-            } else {
-                simulateOfflineSave(id, state);
             }
         }
 
